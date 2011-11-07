@@ -1,0 +1,127 @@
+OK, I checked what happened for job id 26178809. According to the SRM logs, at 16:54 of 10 October the job issued a srmPrepareToGet on file /t1d0/lhcb/data/2011/RAW/FULL/LHCb/COLLISION11/93597/093597_0000000097.raw
+but the file was not on disk any more. This is because the file was removed by the garbage collector on 9 October at 23:21, i.e. the pintime already expired at least one day before.
+However, the file was recalled to disk and already at 16:57 of 10 October, I see that the file was on disk. But for some reason, the job asked and asked again for other few hours with srmStatusGet if the file was on disk, and apparently it didn't believe the answer of the SRM, don't know why. At 23:18:42 it tried for the last time, and then it looks like it gave up, and at 23:18:44 the job issued a new prepareToGet, and this time it found the file straight on disk and went ahead.
+
+In the meantime the job was declared as stalled after about one hour that the lcg-cp was pending (i.e. at 17:58), and declared as failed at 18:01, but then it did not gave up, but waited other few hours according to the history that I told you about above.
+
+So the original reason of the problem was that the job started but the file was not on disk anymore. Why for the rest it behaved like that... I have no idea, but it does not look like a local problem.
+
+Unfortunately a srmBringOnline or srmPrepareToGet does not update access time of the file (unless the file is recalled from tape, but in this case the first time it was already found on disk), hence the garbage collector might choose it soon when the pintime expires, and this is what happened (files with more ancient access time are chosen first by the GC policy). This is something I can solve for future versions of the SRM (but this is not amongst the specs anyway).
+
+Cheers,
+    Vincenzo
+
+On Oct 19, 2011, at 11:53 AM, Vincenzo Vagnoni wrote:
+
+> Hi Ricardo,
+>
+>> in this case the DIRAC Wrapper was not submitting the heartbeat since
+>> it was processing InputData (that took 7 hours), and at the same time
+>> the gLite wrapper seems to have died. The Job is declared Failed.
+>>
+>> Somehow, in this case the DIRAC Wrapper was not killed since it was
+>> not yet running, and thus, once the Input data was downloaded, the job
+>> continue all the way through without further problems.
+>>
+>> The common thing in both cases is that the gLite pilot is found "not
+>> running" any more and thus the Stalled job is declared Failed. If the
+>> job is already Running it seems that the DIRAC Wrapper is also killed
+>> (and the Job ends in Failed Job Successfully Executed), while if the
+>> DIRAC Wrapper is not yet running the job will eventually continue to
+>> the end.
+>>
+>> In both cases the Failed Job causes the Transformation system to
+>> generate a new Job for the same input that fails at the End.
+>>
+>> It will be nice to understand what it is "killing" those pilots and
+>> why the Job continues to run. Since this example is again a CNAF and
+>> Vincenzo mentioned something about having 2 different group processes
+>> causing "problems" to LSF. might be both problems are related.
+>
+> no, that is not a problem. I raised that question of the double group process id because I did not understand how LSF accounted the RUN TIME usage. Then afterwards I studied in more detail and it has nothing to do with the different PGID's. So please forget about that question. I will have a look at the two job id's.
+>
+> Cheers,
+>     Vincenzo
+>
+>>
+>> Regards
+>>
+>> Ricardo
+>>
+>> On 19 October 2011 11:16, Stefan Roiser <Stefan.Roiser@cern.ch> wrote:
+>>> Example job ids 26178809,26234694
+>>>
+>>> Stefan
+>>>
+>>> On 19 Oct 2011, at 11:15, Stefan Roiser wrote:
+>>>
+>>>> Hi Ricardo,
+>>>>
+>>>> I made some further investigation on the 3k files reported, so we have another case where 2 jobs were working on the same file
+>>>>
+>>>> - 1st job - goes into Failed status at some stage - resurrects and then completes successfully ("Done")
+>>>> - 2nd job is created during the Failed status and fails with "Input data already processed"
+>>>>
+>>>> So this is a slight variation of the first problem
+>>>>
+>>>> Cheers
+>>>>
+>>>>      Stefan
+>>>>
+>>>>
+>>>> On 18 Oct 2011, at 17:32, Stefan Roiser wrote:
+>>>>
+>>>>> Hi Ricardo,
+>>>>>
+>>>>> I checked earlier today and found something like 3k files for all reprocessing reco productions with the state of the file "Processed" but no "Done, Completed" jobs. The files I can provide you but I also wanted to attach the job ids which for some reason didn't work with my sql statement. I'll update you later on this.
+>>>>>
+>>>>> cheers
+>>>>>
+>>>>>     Stefan
+>>>>>
+>>>>> On 18 Oct 2011, at 16:00, Ricardo Graciani Diaz wrote:
+>>>>>
+>>>>>> A new ELOG entry has been submitted:
+>>>>>>
+>>>>>> Logbook             : Operations
+>>>>>> Author              : Ricardo Graciani Diaz
+>>>>>> System              : Information
+>>>>>> Production number   :
+>>>>>> Site                :
+>>>>>> GGUS Ticket         :
+>>>>>> CC                  :
+>>>>>> Subject             : Failed Jobs with "Job Finished Successfully"
+>>>>>>
+>>>>>> Logbook URL         : http://lblogbook.cern.ch/Operations/7412
+>>>>>>
+>>>>>> =================================
+>>>>>>
+>>>>>> I have investigate a Job ID provided by Stefan with this problem. This has allowed to identify a number of Jobs with a similar behavior.
+>>>>>>
+>>>>>> A small selection of them: 26401152, 26385335, 26384248, 26393076, 26383361, 26393050, 26331277, 26336985, 26374132, 26361327,
+>>>>>> 26329219, 26101172, 26101165, 26101316, 26101141, 26096709, 26310326, 26331719, 26099756, 26331286, 26331306, 26331282,
+>>>>>> 26331708, 26331292, 26331591, 26331121, 26101209, 26100180, 26331578, 26331291, 26101178, 26101205, 26331579, 26099778,
+>>>>>> 26101182, 26100985, 26331280, 26331120, 26100991, 26101198, 26328702, 26100726, 26101163, 26096477, 26100978, 26328665,
+>>>>>> 26100642, 26101149, 26100192, 26328657
+>>>>>>
+>>>>>> For this Jobs DIRAC finds that the pilot has stopped running (from the point of view of the Grid), that the DIRAC Wrapper has stopped sending
+>>>>>> HeartBeats, and that the Job finalization phase Done by the JobWrapper is not executed (ie stdout,stderr have not been uploaded to DIRAC).
+>>>>>>
+>>>>>> This has the following effect. The job is declared Failed by the Stalled Job Agent (this is OK). Since there are not further updates by the Wrapper
+>>>>>> the major Status of the jobs is never updated.
+>>>>>>
+>>>>>> For some reason, the payload process has managed to continue running. It has been reporting Minor and Application Status (but does not update
+>>>>>> the Major Status)
+>>>>>>
+>>>>>> So from the point of view of DIRAC all these jobs are Failed, even if the payload managed to execute to the end, since the process that is
+>>>>>> supposed to check this was no longer running.
+>>>>>>
+>>>>>> We will keep looking for other cases, since this only covers less than 200 jobs.
+>>>>>>
+>>>>>> Ricardo
+>>>>>>
+>>>>>
+>>>>> ---
+>>>>> Stefan Roiser, CERN, IT Department, CH-1211 Geneva 23
+>>>>> tel:+41 22 76 71443, cell: +41 76 48 75334, fax:+41 22 76 69119
+>>>>>

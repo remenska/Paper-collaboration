@@ -1,0 +1,4 @@
+%A job will never transit from a Completed (or Done?) state to any other (unless manually done through DIRAC_API?)
+[true*.forall ms: MinorStatus. state([jobstatus(Failed,ms)]). true*. state([jobstatus(Running,Application)]) ]false
+
+

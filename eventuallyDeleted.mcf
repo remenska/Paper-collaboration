@@ -1,0 +1,4 @@
+% Added fairness? EVALUATES TO TRUE (if the initial state of the system is tNew / StageSubmitted,StageSubmitted )
+% however, if I start with tNew/ New,New then it is false
+%each tFailed or tStaged is eventually followed by tDeleted
+[true* .(state([tStaged]) || state([tFailed])) .(! ( state([tDeleted]) ))*] < (! (state([tDeleted]) )	)* .(state([tDeleted]))> true

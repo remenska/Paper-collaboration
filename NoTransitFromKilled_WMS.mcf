@@ -1,0 +1,2 @@
+%A job will never transit from a Completed (or Done?) state to any other (unless manually done through DIRAC_API?)
+[true*.state([jobstatus(Killed,MarkedForTermination)]). true*. state([jobstatus(Checking,JobScheduling)]) ]false
