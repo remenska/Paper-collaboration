@@ -1,0 +1,213 @@
+\documentclass{IEEEtran}
+
+\begin{document}
+\title{Behavioral Analysis of the Agent-Based Community Grid Solution for the Large Hadron Collider beauty Experiment}
+\author{Daniela Remenska \and Tim A.C. Willemse \and Henri Bal \and 
+Kees Verstoep \and Wan Fokkink \and Jeff Templon}
+
+\maketitle
+
+\begin{abstract}
+DIRAC (Distributed Infrastructure with Remote Agent Control) is the Grid
+solution designed to support production activities as well as user data
+analysis for the Large Hadron Collider beauty experiment. It consists of
+cooperating distributed services and a plethora of light-weight agents
+delivering the workload to the Grid resources.  Services accept requests
+from agents and running jobs, while agents actively fulfill specific
+goals. Services maintain database back-ends to store dynamic state
+information of entities such as jobs, queues, or staging requests. Agents
+continuously check for changes in the service states, and react to these
+accordingly. The logic of each agent is rather simple; the main source
+of complexity lies in their cooperation. These agents run concurrently,
+and communicate using the services' databases as a shared memory for
+synchronizing the state transitions. Despite the effort invested in
+making DIRAC reliable, entities occasionally get into inconsistent
+states. Tracing and fixing such behaviors is difficult, given the
+inherent parallelism among the distributed components, and the size of
+the implementation.
+
+In this paper we present an analysis of DIRAC with mCRL2, process
+algebra with data. We have reverse engineered two critical and related
+DIRAC subsystems, and subsequently modeled their behavior with the mCRL2
+toolset. This enabled us to easily locate race conditions and livelocks
+which were confirmed to occur in the real system. We further formalized
+and verified several behavioral properties of the two modeled subsystems.
+
+\textbf{Keywords:} DIRAC, service-oriented architecture, agents, stager,
+mCRL2,  model checking,  process algebra
+
+\end{abstract}
+
+
+\section{Introduction}
+
+The Large Hadron Collider beauty (LHCb) experiment \cite{LHCb} is one of
+the four large experiments conducted on the Large Hadron Collider (LHC)
+accelerator, built by the European Organization for Nuclear Research
+(CERN). Immense amounts of data are produced at the LHC accelerator, and
+subsequently processed by physics groups and individuals worldwide. The
+sheer size of the experiment is the motivation behind the adoption of
+the Grid computing paradigm. The Grid storage and computing resources
+for the LHCb experiment are distributed across several institutes in
+Europe. To cope with the complexity of processing the vast amount of
+data, a complete Grid solution, called DIRAC (Distributed Infrastructure
+with Remote Agent Control) \cite{Tsa+:07,ST:07}, has been designed and
+developed for the LHCb community.
+
+DIRAC forms a layer between the LHCb community of users and the
+heterogeneous Grid resources, in order to allow for optimal and reliable
+usage of these resources. It consists of many cooperating distributed
+services and agents which deliver workload to the resources. In
+particular, services are passive modules which accept incoming requests
+from agents and running jobs. Each service has an associated database
+back-end to store dynamic state information of entities such as jobs,
+queues, or staging requests. Agents are light-weight independent
+components that fulfill specific system functions. Using a polling
+strategy they continuously observe for updates in the service states
+and react accordingly. The logic of each individual agent is relatively
+simple; the overall system complexity emerges from the cooperation among
+them. Namely, these agents run concurrently, and communicate using
+the services' databases as a shared memory (blackboard paradigm \cite{McMB:96})
+for synchronizing the entities’ state transitions.  
+
+Although much effort is invested in making DIRAC reliable, entities
+occasionally get into inconsistent states, leading to a potential loss
+of efficiency in both resource usage and manpower. Debugging and fixing
+the root of such encountered behaviors becomes a formidable mission due
+to multiple factors: the inherent parallelism present among the system
+components which are deployed on different physical machines, the size
+of the implementation (around 150000 lines of Python code), and the
+distributed knowledge of different subsystems within the collaboration.
+
+In this paper we propose the use of more rigorous (formal) methods
+for improving software quality. Model checking \cite{GW:05} is one such
+technique for analysis of an abstract model of a system, and verification
+of certain system properties of interest. Unlike conventional testing,
+it allows full control over the execution of parallel processes and also
+supports fully automated exhaustive state-space exploration.
+
+We used the mCRL2 language \cite{GMR+} and toolset \cite{Groote:08}
+to model the behavior of two critical and related DIRAC components: the
+workload management (WMS) and the storage management system (SMS). Based
+on Algebra of Communicating Processes (ACP) \cite{BBR:09}, mCRL2 is able
+to deal with generic data types as well as user-defined functions for
+data transformation. This makes it particularly suitable for modeling
+the data manipulations made by DIRAC's agents. Visualizing the state
+space and replaying scenarios with the toolkit's simulator enabled us
+to gain insight into the system behavior, incrementally improve the
+model, and to already detect critical race-conditions and livelocks,
+which were confirmed to occur in the real system. Some of them were a
+result of simple coding bugs; others unveiled more elementary design
+problems. We further formulated, formalized and verified several general
+and application-specific properties.
+
+The idea of modeling existing systems using
+formal techniques is as such not new. Earlier studies
+(\cite{HJ:04,Pa:06,Hol:90,Fok:11,BR:01,BFGPP:05,ISK:06}) mostly focused
+on modeling and verifying hardware or communication protocols, since
+the formal languages and tools at hand were not sufficiently mature
+to cope with more complex data-intensive distributed systems. More
+recently, success stories on modeling real-life concurrent systems with
+data have been reported (\cite{HKW:11,BMU:09,HMS:11,VM:05,Plo:09}).
+In \cite{HMS:11} the authors have implemented a tool for automatic
+translation of the SystemC language into mCRL2 statements. This greatly
+simplifies the analysis, but has so far been feasible only when the
+language of implementation is domain-specific, or alternatively, a
+reasonably small subset of a general-purpose language is considered for
+translation. The only exception in this respect is the Java Pathfinder
+tool \cite{VM:05} used to find deadlocks and other behavioral properties
+in Java software systems developed by NASA.
+
+We believe that the challenges and results of this work are unique in
+a number of aspects. First, to the best of our knowledge, the code-base
+and the number of concurrent components engaged in providing DIRAC’s
+functionality considerably outnumber previous industrial cases. Second,
+the choice of Python as implementation platform has lead to prevailing
+usage of dynamic structures (whose types and sizes are determined at
+runtime) throughout DIRAC, challenging the transition to an abstract
+formal representation. We have nevertheless established general
+guidelines on extracting a model outline from the implementation. Third,
+analysis of this kind is typically performed after a problem has already
+surfaced in the real system, as a means to understand the events which
+lead to it and test for possible solutions. We managed to stumble on an
+actual bug at the same time it was observed in practice, which increased
+our confidence in the soundness of the model.
+
+The paper is organized as follows. Section 2 introduces the architecture
+of DIRAC, focusing on the two studied subsystems. Section 3 gives a brief
+overview of the mCRL2 language, and describes our approach to abstracting
+and modeling the behavior of these subsystems. Section 4 presents the
+analysis with the mCRL2 toolset and the issues detected. Section 5
+concludes and discusses future work. 
+
+\section{DIRAC: A Community Grid Solution}
+
+
+The development of DIRAC started in 2002 as a system for production
+of simulation (Monte Carlo) data that would serve to verify theory,
+aspects of the LHCb detector design, as well as to optimize algorithms. It
+gradually evolved into a complete community Grid solution for data and job
+management, based on a general-purpose framework that can be reused by
+other communities besides LHCb. Over the years it has been considerably
+reengineered in order to meet the requirements for processing the real
+data coming from the LHC. Today, it covers all major LHCb tasks starting
+with the raw data transfer from the experiment’s detector to the
+Grid storage, several steps of data processing, up to the final user
+analysis. Python was chosen as the implementation language of DIRAC,
+since it enables rapid prototyping and development of new features,
+as well as quickly fixing encountered problems.
+
+DIRAC follows the Service Oriented Architecture (SOA) paradigm,
+accompanied by a network of lightweight distributed agents which animate
+the system. Its main components are depicted in Figure .
+
+The services are passive components which react to requests from their
+clients, possibly soliciting other services in order to fulfill the
+requests. They run as permanent processes deployed on a number of
+high-availability hosts (VO-boxes) at CERN, and persist the dynamic
+system state information in database repositories. To provide a certain
+level of load balancing and redundancy, multiple mirror instances of each
+service can be deployed on different machines. The user interfaces, agents
+or running jobs can act as clients placing the requests to DIRAC’s
+services. All clients and services are built in the DISET framework [21]
+which provides secure access and flexible authorization rules.
+
+Agents are active components that fulfill a limited number of specific
+system functions. They are built around a common framework which provides
+a uniform way for configuration, deployment, control, and logging of each
+agent activity.  They can run in different environments, depending on the
+nature of their mission. Some are deployed close to the corresponding
+services, while others run on the Grid worker nodes.  Examples of the
+later are the so-called Pilot Agents which are part of the Workload
+Management System, explained in more details in the following section
+Workload Management System. All DIRAC agents repeat the same logic in
+each iteration cycle: they observe for changes in the service states,
+and react accordingly by initiating actions (like job submission or data
+transfer) which may update the states of various system entities.
+
+Resources are software abstractions of the underlying heterogeneous
+Grid computing and storage resources allocated to LHCb, providing a
+uniform interface for access to them. The resources are controlled by
+the site managers and made available through middleware services such
+as gLite~\cite{XXX}.
+
+The DIRAC functionality is exposed to users and developers through a
+rich set of command-line tools forming the DIRAC API, complemented by a
+Web portal for visual monitoring the system behavior and controlling the
+ongoing tasks. Both the Web and command-line interfaces ensure secure
+system access using X509 certificates.
+
+\begin{itemize}
+\item Explain why you’ve chosen these two. 
+\begin{enumerate} 
+\item They are related. Stager is crucial for production activities. 
+\item Workload is the driving force
+\end{enumerate}
+\item Explain briefly the other subsystems’ functionality after these two
+\end{itemize}
+
+
+\bibliography{bibliography}
+\bibliographystyle{IEEEtran}
+
+\end{document}
