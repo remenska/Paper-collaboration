@@ -3,6 +3,7 @@
 
 \usepackage{url}
 \usepackage{graphicx}
+\usepackage{cite}
 %\usepackage[center]{caption}
 \usepackage{authblk}
 \begin{document}
@@ -107,15 +108,12 @@ formalized and verified several general and application-specific properties.
 
 The idea of modeling existing systems using 
 formal techniques is as such not new. Earlier studies
-(\cite{SPIN_case_study},\cite{sessionMgmtMasterThesis},\cite{
-desing_validation_protocols}, \cite{protocol_verification_muCRL},
-\cite{SLAMToolkit},\cite{SlidingWindowProtocol},\cite{DHCP_SPIN}) mostly focused
+(\cite{SPIN_case_study,sessionMgmtMasterThesis,desing_validation_protocols,protocol_verification_muCRL,SLAMToolkit,SlidingWindowProtocol,DHCP_SPIN}) mostly focused
 on modeling and verifying hardware or communication protocols, since
 the formal languages and tools at hand were not sufficiently mature
 to cope with more complex data-intensive distributed systems. More
 recently, success stories on modeling real-life concurrent systems with
-data have been reported (\cite{CMS_LHC},\cite{Linux_driver},\cite{SystemC_processAlgebra},
-\cite{Java_PathFinder},\cite{ACS_mCRL2}).
+data have been reported (\cite{CMS_LHC, Linux_driver, SystemC_processAlgebra, Java_PathFinder, ACS_mCRL2}).
 In \cite{SystemC_processAlgebra} the authors have implemented a tool for automatic
 translation of the SystemC language into mCRL2 statements. This greatly
 simplifies the analysis, but has so far been feasible only when the
@@ -220,7 +218,6 @@ effort from the Grid sites.
 \caption{DIRAC Workload Management System \cite{DIRAC_pilot_WMS}}
 \label{fig:DIRAC-WMS}
 \end{figure}
-
  \begin{figure}[b]
 \includegraphics[width=\linewidth,keepaspectratio=true]{./dirac-primary-states.png}
 \centering
@@ -318,7 +315,7 @@ scratch. Occasionally, error messages are reported from unsuccessful attempts of
 the SMS service to update the state of a non-existent table entry.
 
 \bibliographystyle{IEEEtran} 
-\bibliography{references}
+\bibliography{myLibrary}
 
 \end{document}
 
