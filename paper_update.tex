@@ -1,9 +1,12 @@
 
 \documentclass[10pt,conference]{IEEEtran}
 
+\usepackage{color}
 \usepackage{url}
 \usepackage{graphicx}
 \usepackage{cite}
+\usepackage{listings}
+\definecolor{light-gray}{gray}{0.80}
 %\usepackage[center]{caption}
 \usepackage{authblk}
 \begin{document}
@@ -139,7 +142,7 @@ actual bug at the same time it was observed in practice, which increased
 our confidence in the soundness of the model.
 
 The paper is organized as follows. Section 2 introduces the architecture
-of DIRAC, focusing on the two studied subsystems. Section 3 gives a brief
+of DIRAC, focusing on the two subsystems chosen as case studies. Section 3 gives a brief
 overview of the mCRL2 language, and describes our approach to abstracting
 and modeling the behavior of these subsystems. Section 4 presents the
 analysis with the mCRL2 toolset and the issues detected. Section 5
@@ -197,6 +200,11 @@ visual monitoring the system behavior and controlling the ongoing tasks. Both
 the Web and command-line \textit{interfaces} ensure secure system access using X509
 certificates.
 
+!! Mention that there are several subsystems part of DIRAC's architecture.
+We focus on two related subsystems that were considered essential, yet 
+are the ones where problematic state changes were most often encountered, 
+and difficult to trace and correct.  
+
 \subsection{Workload Management System}
 
 The driving force of DIRAC is the Workload Management System (WMS). Taking into
@@ -213,7 +221,7 @@ efficient application of job priorities, enforcing faire-share policies and
 quotas, which are decided within the LHCb community, without the need of any
 effort from the Grid sites.  
 \begin{figure}[t]
-\includegraphics[width=\linewidth,keepaspectratio=true]{./DIRAC_WMS.png}
+\includegraphics[width=\linewidth,keepaspectratio=true]{./DIRAC_WMS1.png}
 \centering
 \caption{DIRAC Workload Management System \cite{DIRAC_pilot_WMS}}
 \label{fig:DIRAC-WMS}
@@ -226,7 +234,7 @@ effort from the Grid sites.
 \end{figure} 
 
 The basic flowchart describing the evolution of a job’s states is depicted in
-Fig.~\ref{fig:DIRAC-job-state-machine}. After submission through the \textit{Job Manager} (“Received”), the complete
+Fig.~\ref{fig:DIRAC-job-state-machine}. After submission through the \textit{Job Manager} (``Received''), the complete
 job description is placed in the DIRAC job repository (the Job DB). Before jobs
 become eligible for execution, a chain of optimizer agents check and prioritize
 them in queues, utilizing the parameters information from the Job DB. \textit{The Job
@@ -236,13 +244,13 @@ performs a resolution of possible target computing resources based on the input
 data requirements. If the requested data resides on tape storage, the \textit{Job
 Scheduling Agent} will pass the control to a specialized \textit{Stager} service (part of
 the SMS explained in the next section), before placing the job a Task Queue
-(“Waiting”). Based on the complete list of pending payloads, a specialized \textit{Task
+(``Waiting''). Based on the complete list of pending payloads, a specialized \textit{Task
 Queue Director} submits pilots to the computing resources via the gLite WMS. After
-a \textit{Matcher} service pulls the most suitable payload for a pilot (“Matched”), a \textit{Job
+a \textit{Matcher} service pulls the most suitable payload for a pilot (``Matched''), a \textit{Job
 Wrapper} object is created on the worker node, responsible for retrieving the
 input sandbox, performing software availability checks, executing the actual
-payload on the worker node (“Running”), and finally uploading any output data
-necessary (“Done” or “Failed”). The wrapper can catch any failure exit state
+payload on the worker node (``Running''), and finally uploading any output data
+necessary (“Done” or ``Failed''). The wrapper can catch any failure exit state
 reported by the running physics applications. At the same time, a \textit{Watchdog}
 process is instantiated to monitor the behavior of the Job Wrapper and send
 heartbeat signals to the monitoring service. It can also take actions in case
@@ -273,7 +281,7 @@ are processed by a sequence of agents in an organized fashion. The relevant
 tables in the SMS DB are the \textit{Tasks} and \textit{CacheReplicas}, whose
 entities maintain a state observed and updated by these agents. Tasks maintain
 general information about every job requesting a service from the SMS. The
-details about every file (i.e., the Storage Element (SE) where it resides, the
+details about every file (i.e., the Storage Element where it resides, the
 size, checksum, number of tasks that requested it), are kept in the CacheReplicas
 table. Other auxiliary tables maintain the relationship between these entities.
 \begin{figure}[t]
@@ -282,26 +290,27 @@ table. Other auxiliary tables maintain the relationship between these entities.
 \caption{DIRAC Storage Management System}
 \label{fig:DIRAC-SMS}
 \end{figure}
+
 The processing begins with the \textit{Request Preparation Agent}. It selects all the
-“New” entries for files, checks whether they are registered in a special logical
+``New'' entries for files, checks whether they are registered in a special logical
 file catalog, and retrieves their metadata. In case of problematic catalog
 entries, it can update the status of the CacheReplicas and the related Tasks
-entries to “Failed”. For non-problematic files it carries out transition to
-“Waiting”. The \textit{StageRequest Agent} is responsible for placing the actual staging
-requests for all “Waiting” entries, via dedicated storage middleware that
+entries to ``Failed''. For non-problematic files it carries out transition to
+``Waiting''. The \textit{StageRequest Agent} is responsible for placing the actual staging
+requests for all ``Waiting'' entries, via dedicated storage middleware that
 communicates with the tape backends. These requests are grouped by SE prior to
 submission, and carry information about the requested (pin) lifetime of the
 replicas to be cached. If certain pathologies are discovered (i.e., lost,
 unavailable or zero-sized files on tape), it can update the corresponding
-entries to “Failed” in a similar manner. Otherwise, they are promoted to
-“StageSubmitted”. The agent responsible for monitoring the status of submitted
+entries to ``Failed'' in a similar manner. Otherwise, they are promoted to
+``StageSubmitted''. The agent responsible for monitoring the status of submitted
 requests is the \textit{StageMonitor Agent}. It achieves this by interrogating the
-storage middleware to see if the “StageSubmitted” files are successfully
+storage middleware to see if the ``StageSubmitted'' files are successfully
 replicated on disk cache. In case of success, the CacheReplicas and their
-corresponding Tasks entries are updated to “Staged”. Various circumstances of
+corresponding Tasks entries are updated to ``Staged''. Various circumstances of
 tape or middleware misbehavior can also fail the staging requests. The last one
 in the chain is the \textit{RequestFinalization Agent}. The tasks which are in their
-final states (“Staged” or “Failed”) are cleared from the database, and callbacks
+final states (``Staged'' or ``Failed'') are cleared from the database, and callbacks
 are performed to the WMS, which effectively wakes up the corresponding jobs. If
 there are no more associated tasks for particular replicas, the respective
 CacheReplicas entries are also removed.
@@ -313,6 +322,119 @@ To temporarily alleviate such problems, the status of these entries is typically
 reset to the initial “New” state manually, so agents can re-process them from
 scratch. Occasionally, error messages are reported from unsuccessful attempts of
 the SMS service to update the state of a non-existent table entry.
+
+\section{System modeling}
+\subsection{The mCRL2 language and toolset}
+tbw
+\subsection{From DIRAC to mCRL2}
+
+Any formal analysis uses a simplified description of the real system. Even in the 
+best possible scenario, where the target implementation language and the modeling 
+notation are very close (\cite{Java_PathFinder},\cite{Musuvathi04modelchecking}), 
+it is practically impossible to avoid the use of abstraction to create a simplified model. 
+Software implementations are large and often contain many details that can be irrelevant 
+for the intended analysis. Abstraction aims at reducing
+the program's state space in order to overcome the resource limitations \cite{Pelánek08fightingstate} encountered during model-checking.
+Furthermore, specification languages describe \textit{what} is being done, 
+abstracting away from the details of \textit{how} things are done. 
+Then, the ultimate question is: \textit{how do we establish correspondence between model and code?}
+
+High-level design documents are a good starting point, but insufficient for 
+building a sound model.
+In absence of more detailed up-to-date behavioral models, 
+we based our models on the source code and discussions with developers.
+A popular abstraction technique
+for identifying code subsets (slices) that (potentially) affect particular 
+variables of interest (slicing criteria) is program slicing \cite{Hatcliff99slicingsoftware}. 
+It reduces the behavior of a program
+by removing control statements and data structures deemed irrelevant for 
+the criteria. Unfortunatelly, to the best of our knowledge, the only practical
+applications of automated slicing have been
+on C/C++ and Java programs.[references] Research has not yet
+matured on this topic for dynamic languages, such as Python. 
+Therefore, we performed the program slicing manually, relying on the Eclipse IDE for 
+reverse-engineering and dependency analysis of the subsystems.
+
+Given the complexity of the reccurent invalid state transitions of entities within DIRAC, 
+we considered the possible race conditions caused by multiple agents updating 
+the service states to be the target of our analysis. We limit the scope
+to analysis of the following entities: \textit{Tasks} (SMS), \textit{CacheReplicas} (SMS) and \textit{Jobs} (WMS).
+This determines our slicing criteria. In the following, we use the SMS as a case study
+for describing the established modeling guidelines. They can be 
+diractly applied to other DIRAC systems.
+
+As already explained, all agents repeat the same logic in every subsequent iteration:first they
+read some entries of interest from the service database, then they process the cached data, and finally
+they may write or update entries back to the central database, based on decisions from the processing step.
+The frontend for all interractions with the storage are the services, essentially acting as wrappers around it.
+Take as an example the code snippet\footnote{This method is $\sim$100 lines of code in reality} 
+in Listing~\ref{listing1}, 
+from the simplest SMS agent: the \textit{Stage Request Agent}. 
+Although much of the code is omitted for clarity, care is taken to preserve
+the parts necessary for ilustrating the basic idea.
+ (and yet it looks baffling!)
+
+\definecolor{light-gray}{gray}{0.90}
+
+\lstset{language=Python,tabsize=2,caption={Request Preparation Agent },
+  stringstyle=\ttfamily,
+  %basicstyle=\small,
+  label=listing1,
+  %frame=trbl,
+  breaklines=true,
+  showstringspaces=false,
+  boxpos=t,
+  belowcaptionskip=5pt
+ }
+
+\begin{lstlisting}[float=tp,escapechar=!,basicstyle=\ttfamily\fontsize{7}{7}\selectfont]
+  def prepareNewReplicas( self ):
+    """ This is the first logical task to be executed 
+    """ and manages the New->Waiting transition of the Replicas
+    res = self.__getNewReplicas()
+    !\colorbox{light-gray}{res = self.getNewReplicas()}!
+    if not res['Value']:
+      gLogger.info('There were no New replicas found')
+      return res
+    [...]
+    # Obtain the replicas from the FileCatalog
+    res = self.__getFileReplicas( fileSizes.keys() )
+    if not res['OK']:
+      return res
+    failed.update( res['Value']['Failed'] )
+    terminal = res['Value']['ZeroReplicas']
+    fileReplicas = res['Value']['Replicas']
+    [...]
+    # Check the replicas exist at the requested site
+    replicaMetadata = []
+    for lfn, requestedSEs in replicas.items():
+      lfnReplicas = fileReplicas[lfn]
+      for requestedSE, replicaID in requestedSEs.items():
+        if not requestedSE in lfnReplicas.keys():
+          terminalReplicaIDs[replicaID] = "LFN not registered at requested SE"
+          replicas[lfn].pop(requestedSE)
+        else:
+          replicaMetadata.append((replicaID, lfnReplicas[requestedSE], fileSizes[lfn]))
+
+    # Update the states of the files in the database
+    if terminalReplicaIDs:
+      gLogger.info('%s replicas are terminally failed.' % len( terminalReplicaIDs ) )
+      !\colorbox{light-gray}{res = self.stagerClient.}!
+	  !\colorbox{light-gray}{updateReplicaFailure(terminalReplicaIDs)}!
+    if replicaMetadata:
+      gLogger.info('%s replica metadata to be updated.' % len( replicaMetadata ) )
+      # Sets the Status='Waiting' of CacheReplicas records 
+      #that are OK with catalogue checks
+      !\colorbox{light-gray}{res = self.stagerClient.}!
+      !\colorbox{light-gray}{updateReplicaInformation( replicaMetadata )}!
+    return S_OK()
+
+\end{lstlisting}
+
+\section{Analysis and Issues}
+\label{sec:Section_4}
+\section{Conclusions and Future Work}
+\label{sec:Section_5}
 
 \bibliographystyle{IEEEtran} 
 \bibliography{myLibrary}
