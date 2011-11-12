@@ -420,13 +420,13 @@ the parts necessary for ilustrating the basic idea.
     if terminalReplicaIDs:
       gLogger.info('%s replicas are terminally failed.' % len( terminalReplicaIDs ) )
       !\colorbox{light-gray}{res = self.stagerClient.}!
-	  !\colorbox{light-gray}{updateReplicaFailure(terminalReplicaIDs)}!
+	    !\colorbox{light-gray}{updateReplicaFailure(terminalReplicaIDs)}!
     if replicaMetadata:
       gLogger.info('%s replica metadata to be updated.' % len( replicaMetadata ) )
       # Sets the Status='Waiting' of CacheReplicas records 
       #that are OK with catalogue checks
       !\colorbox{light-gray}{res = self.stagerClient.}!
-      !\colorbox{light-gray}{updateReplicaInformation( replicaMetadata )}!
+	    !\colorbox{light-gray}{updateReplicaInformation( replicaMetadata )}!
     return S_OK()
 
 \end{lstlisting}
