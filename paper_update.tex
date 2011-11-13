@@ -584,19 +584,15 @@ $ _{RPAgent = }$
 
 $ _{.RPAgent; }$
 $ \\ $
-
 %Since the services are the frontend for all interractions with the storage,
 %they essentially act as wrappers around the storage. By already modeling
 %the storage as a recursive process with memory, there is no need to model them explicitely. 
-
-Thus, so far we have established: a) a finite domain of abstract values, b) an
-abstraction for mapping concrete program values to abstract ones and
-c) collection of processes built from parametrized actions describing 
-the behavior of the program components.
-Substituting concrete operations on real data of interest
-with the corresponding operations of the abstract interpretation yields 
-our abstract model. Finally, the model is put together as a parallel composition of all
+Finally, the model is put together as a parallel composition of all
 communicating processes.
+
+We have established general modeling guidelines and illustrated them
+on the SMS subsystem. Although the WMS model is larger, it is obtained using the same approach.
+The complete models are available at \cite{svn_mcrl2}.
 
 \section{Analysis and Issues}
 \label{sec:Section_4}
