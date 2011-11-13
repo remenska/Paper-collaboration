@@ -5,9 +5,11 @@
 \usepackage{url}
 \usepackage{graphicx}
 \usepackage{cite}
+\usepackage{amsmath}
 \usepackage{listings}
 \definecolor{light-gray}{gray}{0.80}
 %\usepackage[center]{caption}
+\DeclareMathSizes{7}{7}{7}{7}
 \usepackage{authblk}
 \begin{document}
 \title{Behavioral Analysis of the Agent-Based Community Grid Solution for the Large Hadron Collider beauty Experiment}
@@ -39,7 +41,7 @@ agents run concurrently, and communicate using the services' databases as a
 shared memory for synchronizing the state transitions. Despite the effort
 invested in making DIRAC reliable, entities occasionally get into inconsistent
 states. Tracing and fixing such behaviors is difficult, given the inherent
-parallelism among the distributed components, and the size of the
+parallelism among the distributed components and the size of the
 implementation.
 
 In this paper we present an analysis of DIRAC with mCRL2, process algebra with
@@ -292,8 +294,8 @@ table. Other auxiliary tables maintain the relationship between these entities.
 \end{figure}
 
 The processing begins with the \textit{Request Preparation Agent}. It selects all the
-``New'' entries for files, checks whether they are registered in a special logical
-file catalog, and retrieves their metadata. In case of problematic catalog
+``New'' entries for files, checks whether they are registered in a special Logical
+File Catalog (LFC), and retrieves their metadata. In case of problematic catalog
 entries, it can update the status of the CacheReplicas and the related Tasks
 entries to ``Failed''. For non-problematic files it carries out transition to
 ``Waiting''. The \textit{StageRequest Agent} is responsible for placing the actual staging
@@ -355,23 +357,34 @@ matured on this topic for dynamic languages, such as Python.
 Therefore, we performed the program slicing manually, relying on the Eclipse IDE for 
 reverse-engineering and dependency analysis of the subsystems.
 
-Given the complexity of the reccurent invalid state transitions of entities within DIRAC, 
+Given the reccurent invalid state transitions of entities within DIRAC, 
 we considered the possible race conditions caused by multiple agents updating 
 the service states to be the target of our analysis. We limit the scope
 to analysis of the following entities: \textit{Tasks} (SMS), \textit{CacheReplicas} (SMS) and \textit{Jobs} (WMS).
 This determines our slicing criteria. In the following, we use the SMS as a case study
 for describing the established modeling guidelines. They can be 
-diractly applied to other DIRAC systems.
+directly applied to other DIRAC systems. First, the 
+guidelines are informaly described, followed by fragments 
+of the mCRL2 model to illustrate the translation.
 
+\subsubsection{Control Abstractions}
 As already explained, all agents repeat the same logic in every subsequent iteration:first they
 read some entries of interest from the service database, then they process the cached data, and finally
-they may write or update entries back to the central database, based on decisions from the processing step.
-The frontend for all interractions with the storage are the services, essentially acting as wrappers around it.
+they may write or update entries back, based on decisions from the processing step.
+They can be naturally modelled as \textit{recursive processes}.
 Take as an example the code snippet\footnote{This method is $\sim$100 lines of code in reality} 
 in Listing~\ref{listing1}, 
-from the simplest SMS agent: the \textit{Stage Request Agent}. 
-Although much of the code is omitted for clarity, the necessary parts for ilustrating the basic idea are preserved.
- (and yet it looks baffling!)
+from the simplest agent: the \textit{Stage Request Agent}. 
+Although much of the code is omitted for clarity, the necessary parts for
+ilustrating the basic idea are kept.
+The first highlighted statement is the selection of all "New'' CacheReplicas
+entries. What follows is retrieval of their metadata from the LFC,
+external to this subsystem. Subsequently, list and dictionary manipulations
+are done to group the retrieved data depending on the outcome.
+Two lists of replica IDs are built before the last step: one for the problematic catalog entries,
+and one for the sucesful sanity checks.
+Finally, the last two highlighted code segments update the states 
+of the corresponding CacheReplicas to "Failed'' and ``Waiting'' respectfully.
 
 \definecolor{light-gray}{gray}{0.90}
 
@@ -390,7 +403,6 @@ Although much of the code is omitted for clarity, the necessary parts for ilustr
   def prepareNewReplicas( self ):
     """ This is the first logical task to be executed 
     """ and manages the New->Waiting transition of the Replicas
-    res = self.__getNewReplicas()
     !\colorbox{light-gray}{res = self.getNewReplicas()}!
     if not res['Value']:
       gLogger.info('There were no New replicas found')
@@ -404,7 +416,6 @@ Although much of the code is omitted for clarity, the necessary parts for ilustr
     terminal = res['Value']['ZeroReplicas']
     fileReplicas = res['Value']['Replicas']
     [...]
-    # Check the replicas exist at the requested site
     replicaMetadata = []
     for lfn, requestedSEs in replicas.items():
       lfnReplicas = fileReplicas[lfn]
@@ -429,6 +440,163 @@ Although much of the code is omitted for clarity, the necessary parts for ilustr
     return S_OK()
 
 \end{lstlisting}
+
+The logging statements, although critical for operational matters, will
+not affect the entries' states, and can be translated to \textit{silent steps} in mCRL2.
+Furthermore, instead of tracing back and modeling all variables on which 
+the two final lists depend, we can use nondeterminism. 
+It is not known upfront which branch execution will follow
+for a particular replica, as it depends on external behaviour (i.e. the interactions of the system with its environment)
+However, by stubbing-out the communication with the LFC and
+most of the local variable manipulations 
+that follow, and replacing them with a \textit{nondeterministic choice} between the two
+ultimate state updates, we can include both possibilities in the model behavior,
+and still preserve correctness. Of course, depending on the context, some 
+variable values cannot be ignored, in which case decisivness can be preserved
+using \textit{if-then-else} mCRL2 statements. All relevant selection and update 
+statements are translated into \textit{parametrized actions}.
+ 
+\subsubsection{Data Abstractions}
+The CacheReplicas entity contains more information besides the state.
+Every database entry has a unique identifier, descriptive data such as 
+the SE where it resides, its full path, checksum, timestamps etc. 
+Model checking can only be performed on closed models, where the domains
+of all variables are finite. Since we are only interested in state transitions,
+we can collapse most of this descriptive data, and represent this entity as a 
+\textit{custom sort} in mCRL2:
+%\begin{lstlisting}[tabsize=10,basicstyle=\ttfamily\fontsize{8}{7}\selectfont]
+\begin{displaymath}
+\begin{align*}
+sort\ CacheReplicas = \textbf{struct}\ Start?is\_start\ | \\
+			  New?is\_new\ |  \\
+		    Waiting?is\_waiting\ | \\
+          StageSubmitted?is\_stageSubmitted\ | \\ 
+		      Staged?is\_staged\ | \\
+		      Failed?is\_failed\ | \\
+		  Deleted?is\_deleted\ ;
+\end{align*}
+\end{displaymath}
+%\end{lstlisting}
+This defines an enumerated data type with all possible states, together with constructor and recognizer functions.
+The Tasks entity is modeled in the same manner. Lists of these sorts can be easily modeled 
+in mCRL2 as \begin{math}List(Tasks) \end{math} and 
+\begin{math}List(CacheReplicas) \end{math}.
+To define the many-to-many relationship between Tasks and CacheReplicas,
+we join these data elements in a tuple:
+%\begin{lstlisting}[tabsize=10,basicstyle=\ttfamily\fontsize{8}{7}\selectfont]
+\begin{displaymath}sort \ Tuple = \textbf{struct}\ p(t:Nat,r:Nat,link:Bool)
+\end{displaymath}
+%\end{lstlisting}
+The first two elements are the list positions of the Tasks and CacheReplicas
+entries, while the last one indicates whether a relation between
+them exists at a given moment of the system execution. The projections 
+($t:Tuple\mapsto Nat$, $r:Tuple\mapsto Nat$, $link:Tuple\mapsto Bool$)
+of the tuple on the individual data types are automatically defined with the above
+statement.
+
+In reality agents operate on lists of IDs corresponding to the database
+entries, so functions for transforming items of type \begin{math}List(CacheReplicas)\end{math}
+and \begin{math}List(Tasks)\end{math}
+to a list of identifiers (i.e., positions) 
+\begin{math}List(Nat)\end{math} are necessary.
+One such \textit{data transformation} used in the model is the 
+$t2id:List(Tasks)\times Tasks\mapsto List(Nat)$ function, which,
+given an existing list of Tasks and a specific Tasks value, returns the list positions
+ matching the value.
+For example:
+% example t2id([one,two,two,three],two)->[1,2] 
+\begin{displaymath}
+t2id([New,Staged,Staged,Failed],Staged)\rightarrow [1,2] 
+\end{displaymath}
+Another example is the 
+$id2cr:List(Nat)\times Lsit(CacheReplicas)\times CacheReplicas\mapsto List(CacheReplicas)$                                                                                                
+function, which can be used to update certain CacheReplicas list entries with a new value, in the following way:
+\begin{displaymath}
+id2cr([0,1],[Waiting,Staged,New],Failed) \\
+ \rightarrow \\
+\end{displaymath}
+\begin{displaymath}
+[Failed,Failed,New]
+\end{displaymath}
+These data transformations provide a natural way of modeling
+the actual database operations.
+
+The mCRL2 language does not allow global variables (or a similar construct).
+Therefore, the shared database is modeled as a parametrized wrapper process
+that keeps the entries in its local memory, as illustrated in Figure~\ref{fig:CRMemory}.
+\begin{figure*}[!t]
+
+$proc\ CacheReplicaMem(d:List(CacheReplicas)) = $
+
+$\sum_{t:CacheReplicas} RPAgent\_selectCacheReplicas\_(cr2id(d,t),t).
+CacheReplicaMem(d) +$
+
+$\sum_{l:List(Nat),t:CacheReplicas} RPAgent\_prepareNewReplicas\_(l,t).CacheReplicaMem(id2cr(l,d,t))+$
+
+$\dots\ +$ 
+
+$\sum_{l:List(Nat),t:CacheReplicas} RFAgent\_removeReplicas\_(l,t).CacheReplicaMem(id2cr(l,d,t))+$
+
+$CacheReplicaMem(d);$
+
+\caption{CacheReplicas memory process}
+\label{fig:CRMemory}
+\end{figure*}
+By means of process communication, the shared list of entries can be obtained
+and changed by the agent processes. The
+recursive process continously listens and responds
+to requests from other processes (agents).
+The summation operator allows the process to 
+accept any value of the \begin{math}CacheReplicas\end{math}
+and \begin{math}List(Nat)\end{math} sort passed by agents.
+To ensure that such synchronous communication between the memory process and the agents
+is possible, the mCRL2 \begin{math}allow\end{math}
+and \begin{math}comm\end{math}
+constructs are used
+in the \begin{math}init\end{math}
+part of the specification:
+
+$ \Delta_{\{RPAgent\_selectCacheReplicas,
+    RPAgent\_prepareNewReplicas, } $
+  $    _{\dots\\, RFAgent\_removeReplicas\}} $
+
+$ \Gamma_{\{\_RPAgent\_selectCacheReplicas|
+   RPAgent\_selectCacheReplicas\_} $
+  $  _{\rightarrow RPAgent\_selectCacheReplicas, } $
+  $ _{\_RPAgent\_prepareNewReplicas|RPAgent\_prepareNewReplicas\_} $
+  $  _{\rightarrow RPAgent\_prepareNewReplicas,\dots\\, } $
+ $ _{\_RFAgent\_removeReplicas|RFAgent\_removeReplicas\_} $
+  $  _{\rightarrow RFAgent\_removeReplicas\}} $
+$ \\ $
+
+To complete the picture, we give an outline of the model for the \begin{math}Request Preparation Agent\end{math}:
+
+$ _{RPAgent = }$
+	$ _{\sum_{cc:List(Nat)} \_RPAgent\_selectCacheReplicas(cc,New). }$
+
+	$ _{((cc\neq[])\rightarrow \ (\_RPAgent\_prepareNewReplicas(cc,Failed). } $
+
+	$_{	\sum _{tt:List(Nat)} \_RPAgent\_selectTaskReplicas(tt,cc).  }$
+
+	$_{	((tt\neq[])\rightarrow \_RPAgent\_prepareNewReplicasT(tt,tFailed)\ \diamond \ \tau)\ + }$  
+
+	$ _{\_RPAgent\_prepareNewReplicas(cc,Waiting))\ \diamond \ \tau) } $
+
+$ _{.RPAgent; }$
+$ \\ $
+
+%Since the services are the frontend for all interractions with the storage,
+%they essentially act as wrappers around the storage. By already modeling
+%the storage as a recursive process with memory, there is no need to model them explicitely. 
+
+Thus, so far we have established: a) a finite domain of abstract values, b) an
+abstraction for mapping concrete program values to abstract ones and
+c) collection of processes built from parametrized actions describing 
+the behavior of the program components.
+Substituting concrete operations on real data of interest
+with the corresponding operations of the abstract interpretation yields 
+our abstract model. Finally, the model is put together as a parallel composition of all
+communicating processes.
 
 \section{Analysis and Issues}
 \label{sec:Section_4}
